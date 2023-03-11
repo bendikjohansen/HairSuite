@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+    db:
+        image: postgres:latest
+        ports:
+            - 5432:5432
+        environment:
+            POSTGRES_USER: HairSuite
+            POSTGRES_PASSWORD: K:QbyX898+Vg-JsdEVZq
+            POSTGRES_DB: HairSuite
