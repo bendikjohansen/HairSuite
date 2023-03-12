@@ -12,8 +12,15 @@ public class ReservationsController : ControllerBase
 
     public ReservationsController(IApplicationService<Reservation> service) => _service = service;
 
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Query(Guid id, IDocumentSession _documentSession)
+    {
+        var result = await _documentSession.Json.FindByIdAsync<Reservation>(id);
+        return result == null ? NotFound() : Ok(result);
+    }
+
     [HttpPost("make-tentative")]
-    public async Task<IActionResult> MakeTentative(Commands.V1.MakeReservation command) =>
+    public async Task<IActionResult> MakeTentative(Commands.V1.MakeTentativeReservation command) =>
         Ok(await _service.Handle(command));
 
     [HttpPatch("confirm")]
@@ -39,7 +46,7 @@ public class ReservationService : IApplicationService<Reservation>
     {
         var stream = command switch
         {
-            Commands.V1.MakeReservation cmd => await Create(cmd),
+            Commands.V1.MakeTentativeReservation cmd => await Create(cmd),
             Commands.V1.ConfirmReservation cmd => await GetAndUpdate(cmd.Id, reservation => reservation.Confirm(cmd.Id)),
             Commands.V1.RescheduleReservation cmd => await GetAndUpdate(cmd.Id,
                 reservation => reservation.Reschedule(cmd.Id, cmd.Date)),
@@ -49,10 +56,10 @@ public class ReservationService : IApplicationService<Reservation>
 
         await _documentSession.SaveChangesAsync();
 
-        return await _documentSession.LoadAsync<Reservation>(stream) ?? throw new Exception("Hey");
+        return (await _documentSession.LoadAsync<Reservation>(stream))!;
     }
 
-    private Task<Guid> Create(Commands.V1.MakeReservation command)
+    private Task<Guid> Create(Commands.V1.MakeTentativeReservation command)
     {
         var (id, userId, date) = command;
         var reservation = Reservation.MakeTentative(id, userId, date);
@@ -85,7 +92,7 @@ public static class Commands
 {
     public static class V1
     {
-        public record MakeReservation(Guid Id, Guid UserId, DateTime Date);
+        public record MakeTentativeReservation(Guid Id, Guid UserId, DateTime Date);
 
         public record ConfirmReservation(Guid Id);
 
