@@ -46,7 +46,7 @@ public class ReservationService : IApplicationService<Reservation>
     {
         var stream = command switch
         {
-            Commands.V1.MakeTentativeReservation cmd => await Create(cmd),
+            Commands.V1.MakeTentativeReservation cmd => Create(cmd),
             Commands.V1.ConfirmReservation cmd => await GetAndUpdate(cmd.Id, reservation => reservation.Confirm(cmd.Id)),
             Commands.V1.RescheduleReservation cmd => await GetAndUpdate(cmd.Id,
                 reservation => reservation.Reschedule(cmd.Id, cmd.Date)),
@@ -59,14 +59,14 @@ public class ReservationService : IApplicationService<Reservation>
         return (await _documentSession.LoadAsync<Reservation>(stream))!;
     }
 
-    private Task<Guid> Create(Commands.V1.MakeTentativeReservation command)
+    private Guid Create(Commands.V1.MakeTentativeReservation command)
     {
         var (id, userId, date) = command;
         var reservation = Reservation.MakeTentative(id, userId, date);
 
         var events = reservation.DequeueUncommittedEvents();
-        var stream = _documentSession.Events.StartStream<Reservation>(id, events[0]);
-        return Task.FromResult(stream.Id);
+        var stream = _documentSession.Events.StartStream<Reservation>(id, events);
+        return stream.Id;
     }
 
     private async Task<Guid> GetAndUpdate(Guid id, Action<Reservation> action)

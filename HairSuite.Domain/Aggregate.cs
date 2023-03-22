@@ -2,7 +2,7 @@ namespace HairSuite.Domain;
 
 public abstract class Aggregate
 {
-    public long Version { get; protected set; }
+    public long Version { get; set; }
 
     [NonSerialized] private readonly Queue<object> _uncommittedEvents = new();
 
