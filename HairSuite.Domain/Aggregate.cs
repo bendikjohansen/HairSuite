@@ -14,6 +14,11 @@ public abstract class Aggregate
     }
 
     protected void Enqueue(object @event) => _uncommittedEvents.Enqueue(@event);
+
+    protected void HandleEvent<TEvent>(TEvent @event, Action<TEvent> apply) where TEvent : notnull {
+        Enqueue(@event);
+        apply(@event);
+    }
 }
 
 public record AggregateId(Guid Value);
