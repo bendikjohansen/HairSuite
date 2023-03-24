@@ -47,7 +47,7 @@ public class ReservationService : IApplicationService<Reservation>
         var stream = command switch
         {
             Commands.V1.MakeTentativeReservation cmd => Create(cmd),
-            Commands.V1.ConfirmReservation cmd => await GetAndUpdate(cmd.Id, reservation => reservation.Confirm(cmd.Id)),
+            Commands.V1.ConfirmReservation cmd => await GetAndUpdate(cmd),
             Commands.V1.RescheduleReservation cmd => await GetAndUpdate(cmd.Id,
                 reservation => reservation.Reschedule(cmd.Id, cmd.Date)),
             Commands.V1.CancelReservation cmd => await GetAndUpdate(cmd.Id, reservation => reservation.Cancel(cmd.Id)),
@@ -75,6 +75,26 @@ public class ReservationService : IApplicationService<Reservation>
         if (reservation == null) throw new Exception($"No such reservation found: {id}");
 
         action(reservation);
+        var events = reservation.DequeueUncommittedEvents();
+        var nextVersion = reservation.Version + events.Length;
+
+        var stream = _documentSession.Events.Append(reservation.ReservationId.Value, nextVersion, events);
+        return stream.Id;
+    }
+
+    private async Task<Guid> GetAndUpdate(Commands.V1.ConfirmReservation command)
+    {
+        var reservation = await _documentSession.Events.AggregateStreamAsync<Reservation>(command.Id);
+        if (reservation == null) throw new Exception($"No such reservation found: {command.Id}");
+
+        var collidingReservations = await _documentSession.Query<Reservation>()
+            .Where(res => res.Date.Value == reservation.Date.Value).ToListAsync();
+
+        bool IsFree() => collidingReservations.All(collision =>
+            collision.Id == reservation.Id || collision.Status != ReservationStatus.Booked || collision.Date != reservation.Date);
+
+        reservation.Confirm(command.Id, IsFree);
+
         var events = reservation.DequeueUncommittedEvents();
         var nextVersion = reservation.Version + events.Length;
 

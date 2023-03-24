@@ -21,12 +21,18 @@ public class Reservation : Aggregate
 
     public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) => new(id, hairdresserId, date);
 
-    public void Confirm(Guid id)
+    public void Confirm(Guid id, Func<bool> isFree)
     {
         if (Status != ReservationStatus.Tentative)
         {
             throw new DomainException("Only requested reservations can be confirmed.");
         }
+
+        if (!isFree())
+        {
+            throw new DomainException("This reservation date has already been reserved.");
+        }
+
         HandleEvent(new Events.ReservationConfirmed(id), Apply);
     }
 
@@ -67,7 +73,7 @@ public record ReservationId(Guid Value) : AggregateId(Value);
 
 public record HairdresserId(Guid Value);
 
-public record ReservationDate(DateTime Value);
+public record ReservationDate(DateTimeOffset Value);
 
 public enum ReservationStatus
 {
@@ -78,11 +84,11 @@ public enum ReservationStatus
 
 public static class Events
 {
-    public record ReservationRequested(Guid Id, Guid HairdresserId, DateTime Date);
+    public record ReservationRequested(Guid Id, Guid HairdresserId, DateTimeOffset Date);
 
     public record ReservationConfirmed(Guid Id);
 
     public record ReservationCancelled(Guid Id);
 
-    public record ReservationRescheduled(Guid Id, DateTime Date);
+    public record ReservationRescheduled(Guid Id, DateTimeOffset Date);
 }
