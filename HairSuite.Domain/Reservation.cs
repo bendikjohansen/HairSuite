@@ -56,7 +56,11 @@ public class Reservation : Aggregate
 
     public void Apply(Events.ReservationCancelled _) => Status = ReservationStatus.Cancelled;
 
-    public void Apply(Events.ReservationRescheduled @event) => Date = new ReservationDate(@event.Date);
+    public void Apply(Events.ReservationRescheduled @event)
+    {
+        Status = ReservationStatus.Tentative;
+        Date = new ReservationDate(@event.Date);
+    }
 }
 
 public record ReservationId(Guid Value) : AggregateId(Value);
