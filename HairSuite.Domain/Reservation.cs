@@ -16,9 +16,7 @@ public class Reservation : Aggregate
 
     private Reservation(Guid id, Guid hairdresserId, DateTime date)
     {
-        var @event = new Events.ReservationRequested(id, hairdresserId, date);
-        Enqueue(@event);
-        Apply(@event);
+        HandleEvent(new Events.ReservationRequested(id, hairdresserId, date), Apply);
     }
 
     public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) => new(id, hairdresserId, date);
@@ -29,10 +27,7 @@ public class Reservation : Aggregate
         {
             throw new DomainException("Only requested reservations can be confirmed.");
         }
-
-        var @event = new Events.ReservationConfirmed(id);
-        Enqueue(@event);
-        Apply(@event);
+        HandleEvent(new Events.ReservationConfirmed(id), Apply);
     }
 
     public void Cancel(Guid id)
@@ -41,17 +36,12 @@ public class Reservation : Aggregate
         {
             throw new DomainException("Can not cancel a reservation that is already cancelled.");
         }
-
-        var @event = new Events.ReservationCancelled(id);
-        Enqueue(@event);
-        Apply(@event);
+        HandleEvent(new Events.ReservationCancelled(id), Apply);
     }
 
     public void Reschedule(Guid id, DateTime date)
     {
-        var @event = new Events.ReservationRescheduled(id, date);
-        Enqueue(@event);
-        Apply(@event);
+        HandleEvent(new Events.ReservationRescheduled(id, date), Apply);
     }
 
     public void Apply(Events.ReservationRequested @event)
