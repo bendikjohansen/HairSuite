@@ -14,23 +14,22 @@ public class Reservation : Aggregate
 
     public Reservation() { } // For serialization
 
-    private Reservation(Guid id, Guid hairdresserId, DateTime date)
-    {
+    private Reservation(Guid id, Guid hairdresserId, DateTime date) =>
         HandleEvent(new Events.ReservationRequested(id, hairdresserId, date), Apply);
-    }
 
-    public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) => new(id, hairdresserId, date);
+    public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) =>
+        new(id, hairdresserId, date);
 
-    public void Confirm(Guid id, Func<bool> isFree)
+    public void Confirm(Guid id, Func<ReservationId, ReservationDate, bool> isDateReserved)
     {
         if (Status != ReservationStatus.Tentative)
         {
             throw new DomainException("Only requested reservations can be confirmed.");
         }
 
-        if (!isFree())
+        if (isDateReserved(ReservationId, Date))
         {
-            throw new DomainException("This reservation date has already been reserved.");
+            throw new DomainException($"The date has already been reserved: {Date.Value}");
         }
 
         HandleEvent(new Events.ReservationConfirmed(id), Apply);
@@ -42,13 +41,12 @@ public class Reservation : Aggregate
         {
             throw new DomainException("Can not cancel a reservation that is already cancelled.");
         }
+
         HandleEvent(new Events.ReservationCancelled(id), Apply);
     }
 
-    public void Reschedule(Guid id, DateTime date)
-    {
+    public void Reschedule(Guid id, DateTime date) =>
         HandleEvent(new Events.ReservationRescheduled(id, date), Apply);
-    }
 
     public void Apply(Events.ReservationRequested @event)
     {
@@ -73,7 +71,15 @@ public record ReservationId(Guid Value) : AggregateId(Value);
 
 public record HairdresserId(Guid Value);
 
-public record ReservationDate(DateTimeOffset Value);
+public record ReservationDate
+{
+    public DateTimeOffset Value { get; set; }
+
+    public ReservationDate(DateTimeOffset value)
+    {
+        Value = value.ToUniversalTime();
+    }
+}
 
 public enum ReservationStatus
 {
