@@ -5,20 +5,23 @@ public class Reservation : Aggregate
     public Guid Id
     {
         get => ReservationId.Value;
-        set {}
+        set { }
     }
+
     public ReservationId ReservationId { get; set; }
     public HairdresserId UserId { get; set; }
     public ReservationDate Date { get; set; }
     public ReservationStatus Status { get; set; }
 
-    public Reservation() { } // For serialization
+    // For serialization
+    public Reservation()
+    {
+    }
 
     private Reservation(Guid id, Guid hairdresserId, DateTime date) =>
         HandleEvent(new Events.ReservationRequested(id, hairdresserId, date), Apply);
 
-    public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) =>
-        new(id, hairdresserId, date);
+    public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) => new(id, hairdresserId, date);
 
     public void Confirm(Guid id, Func<ReservationId, ReservationDate, bool> isDateReserved)
     {
