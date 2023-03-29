@@ -13,11 +13,15 @@ public class ReservationsController : ControllerBase
     public ReservationsController(IApplicationService<Reservation> service) => _service = service;
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Query(Guid id, IDocumentSession _documentSession)
+    public async Task<IActionResult> Query(Guid id, IDocumentSession documentSession)
     {
-        var result = await _documentSession.Json.FindByIdAsync<Reservation>(id);
+        var result = await documentSession.Json.FindByIdAsync<Reservation>(id);
         return result == null ? NotFound() : Ok(result);
     }
+
+    [HttpGet]
+    public async Task<IActionResult> Query(IDocumentSession documentSession) =>
+        Ok(await documentSession.Query<Reservation>().ToListAsync());
 
     [HttpPost("make-tentative")]
     public async Task<IActionResult> MakeTentative(Commands.V1.MakeTentativeReservation command) =>
@@ -47,7 +51,8 @@ public class ReservationService : IApplicationService<Reservation>
         var stream = command switch
         {
             Commands.V1.MakeTentativeReservation cmd => Create(cmd),
-            Commands.V1.ConfirmReservation cmd => await GetAndUpdate(cmd.Id, reservation => reservation.Confirm(cmd.Id)),
+            Commands.V1.ConfirmReservation cmd => await GetAndUpdate(cmd.Id,
+                reservation => reservation.Confirm(cmd.Id, IsDateReserved)),
             Commands.V1.RescheduleReservation cmd => await GetAndUpdate(cmd.Id,
                 reservation => reservation.Reschedule(cmd.Id, cmd.Date)),
             Commands.V1.CancelReservation cmd => await GetAndUpdate(cmd.Id, reservation => reservation.Cancel(cmd.Id)),
@@ -71,16 +76,26 @@ public class ReservationService : IApplicationService<Reservation>
 
     private async Task<Guid> GetAndUpdate(Guid id, Action<Reservation> action)
     {
-        var reservation = await _documentSession.Events.AggregateStreamAsync<Reservation>(id);
-        if (reservation == null) throw new Exception($"No such reservation found: {id}");
-
+        var reservation = await RequireReservation(id);
         action(reservation);
+        return AppendChangesToStream(reservation);
+    }
+
+    private async Task<Reservation> RequireReservation(Guid id) =>
+        await _documentSession.Events.AggregateStreamAsync<Reservation>(id) ??
+        throw new Exception($"No such reservation found: {id}");
+
+    private Guid AppendChangesToStream(Reservation reservation)
+    {
         var events = reservation.DequeueUncommittedEvents();
         var nextVersion = reservation.Version + events.Length;
-
         var stream = _documentSession.Events.Append(reservation.ReservationId.Value, nextVersion, events);
         return stream.Id;
     }
+
+    private bool IsDateReserved(Reservation reservation) =>
+        _documentSession.Query<Reservation>()
+            .Any(other => other.Date.Value == reservation.Date.Value && other.Status == ReservationStatus.Booked);
 }
 
 public interface IApplicationService<T>
