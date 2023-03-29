@@ -93,9 +93,9 @@ public class ReservationService : IApplicationService<Reservation>
         return stream.Id;
     }
 
-    private bool IsDateReserved(ReservationId id, ReservationDate date) =>
+    private bool IsDateReserved(Reservation reservation) =>
         _documentSession.Query<Reservation>()
-            .Any(other => other.Date.Value == date.Value && other.Status == ReservationStatus.Booked);
+            .Any(other => other.Date.Value == reservation.Date.Value && other.Status == ReservationStatus.Booked);
 }
 
 public interface IApplicationService<T>

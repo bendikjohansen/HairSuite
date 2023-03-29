@@ -23,14 +23,14 @@ public class Reservation : Aggregate
 
     public static Reservation MakeTentative(Guid id, Guid hairdresserId, DateTime date) => new(id, hairdresserId, date);
 
-    public void Confirm(Guid id, Func<ReservationId, ReservationDate, bool> isDateReserved)
+    public void Confirm(Guid id, Func<Reservation, bool> isDateReserved)
     {
         if (Status != ReservationStatus.Tentative)
         {
             throw new DomainException("Only requested reservations can be confirmed.");
         }
 
-        if (isDateReserved(ReservationId, Date))
+        if (isDateReserved(this))
         {
             throw new DomainException($"The date has already been reserved: {Date.Value}");
         }
