@@ -21,4 +21,7 @@ public abstract class Aggregate
     }
 }
 
-public record AggregateId(Guid Value);
+public record AggregateId(Guid Value)
+{
+    public static implicit operator Guid(AggregateId id) => id.Value;
+}
